@@ -1,15 +1,71 @@
 
-import { useState } from "react";
-import { Upload, FileText, History } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Upload, FileText, History, LogIn, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import type { User } from "@supabase/supabase-js";
 
 const Index = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Check active session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+
+    if (error) {
+      toast({
+        title: "שגיאה בהתחברות",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        title: "שגיאה בהתנתקות",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    if (!user) {
+      toast({
+        title: "נדרשת התחברות",
+        description: "אנא התחבר כדי להעלות קבצים",
+        variant: "destructive",
+      });
+      return;
+    }
     const droppedFiles = Array.from(e.dataTransfer.files);
     setFiles(droppedFiles);
     toast({
@@ -19,6 +75,14 @@ const Index = () => {
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user) {
+      toast({
+        title: "נדרשת התחברות",
+        description: "אנא התחבר כדי להעלות קבצים",
+        variant: "destructive",
+      });
+      return;
+    }
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files);
       setFiles(selectedFiles);
@@ -30,19 +94,55 @@ const Index = () => {
   };
 
   const handleAnalyze = async () => {
+    if (!user) {
+      toast({
+        title: "נדרשת התחברות",
+        description: "אנא התחבר כדי לנתח קבצים",
+        variant: "destructive",
+      });
+      return;
+    }
     setAnalyzing(true);
     // Here you'll integrate with your analysis system
     toast({
       title: "ניתוח מסמכים",
       description: "המסמכים נשלחו לניתוח",
     });
-    setTimeout(() => setAnalyzing(false), 2000); // Remove this when implementing real analysis
+    setTimeout(() => setAnalyzing(false), 2000);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary p-6">
       <div className="max-w-7xl mx-auto">
         <header className="text-center mb-12 fade-in">
+          <div className="flex justify-end mb-4">
+            {user ? (
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground">
+                  שלום, {user.email}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="flex items-center gap-2"
+                >
+                  <User size={16} />
+                  התנתק
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={handleLogin}
+                className="flex items-center gap-2"
+                variant="outline"
+                size="sm"
+              >
+                <LogIn size={16} />
+                התחבר עם Google
+              </Button>
+            )}
+          </div>
           <h1 className="text-4xl font-bold mb-4">מערכת ניתוח מסמכים</h1>
           <p className="text-muted-foreground">העלו מסמכים לניתוח מתקדם</p>
         </header>
@@ -57,21 +157,27 @@ const Index = () => {
               <Upload className="mx-auto mb-4 text-primary/60" size={40} />
               <h2 className="text-xl font-semibold mb-2">העלאת מסמכים</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                גררו קבצים לכאן או לחצו לבחירה
+                {user
+                  ? "גררו קבצים לכאן או לחצו לבחירה"
+                  : "אנא התחברו כדי להעלות קבצים"}
               </p>
-              <input
-                type="file"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-                id="file-upload"
-              />
-              <label
-                htmlFor="file-upload"
-                className="inline-block bg-primary text-primary-foreground px-4 py-2 rounded-lg cursor-pointer hover:bg-primary/90 transition-colors"
-              >
-                בחירת קבצים
-              </label>
+              {user && (
+                <>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    id="file-upload"
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className="inline-block bg-primary text-primary-foreground px-4 py-2 rounded-lg cursor-pointer hover:bg-primary/90 transition-colors"
+                  >
+                    בחירת קבצים
+                  </label>
+                </>
+              )}
             </div>
 
             {files.length > 0 && (
@@ -103,9 +209,15 @@ const Index = () => {
             <div className="text-center">
               <History className="mx-auto mb-4 text-primary/60" size={40} />
               <h2 className="text-xl font-semibold mb-4">היסטוריית ניתוחים</h2>
-              <p className="text-muted-foreground">
-                כאן תוכלו לראות את היסטוריית הניתוחים שלכם
-              </p>
+              {user ? (
+                <p className="text-muted-foreground">
+                  כאן תוכלו לראות את היסטוריית הניתוחים שלכם
+                </p>
+              ) : (
+                <p className="text-muted-foreground">
+                  אנא התחברו כדי לראות את היסטוריית הניתוחים שלכם
+                </p>
+              )}
             </div>
           </div>
         </div>
