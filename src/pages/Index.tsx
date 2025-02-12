@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import { Upload, FileText, History, LogIn, User } from "lucide-react";
+import { Upload, FileText, History, LogIn, User as UserIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -127,7 +126,7 @@ const Index = () => {
                   onClick={handleLogout}
                   className="flex items-center gap-2"
                 >
-                  <User size={16} />
+                  <UserIcon size={16} />
                   התנתק
                 </Button>
               </div>
