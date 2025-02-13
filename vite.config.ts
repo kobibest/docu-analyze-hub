@@ -6,7 +6,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: "./",  // זה יפתור את בעיית ה-GitHub Pages
+  base: "/docu-analyze-hub/",  // שינינו את זה לשם המדויק של הריפוזיטורי
   server: {
     host: "::",
     port: 8080,
